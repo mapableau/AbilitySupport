@@ -1,10 +1,17 @@
 /**
  * lib/db — Database access layer (Neon Postgres + Drizzle ORM).
  *
- * Re-exports the Drizzle client and all table definitions so consumers
- * can write:
- *   import { db, participants, providers } from "@/lib/db";
+ * ```ts
+ * import { db, withTransaction, participants, providers } from "@/lib/db";
+ *
+ * // Simple query (HTTP, edge-compatible)
+ * const rows = await db.select().from(providers);
+ *
+ * // Interactive transaction (WebSocket, read-then-write)
+ * await withTransaction(async (tx) => { ... });
+ * ```
  */
 
-export * from "./client";
-export * from "./schema";
+export { db, type Database } from "./client.js";
+export { withTransaction } from "./tx.js";
+export * from "./schema.js";
