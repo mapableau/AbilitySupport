@@ -22,3 +22,4 @@ export * from "./booking.js";
 export * from "./match-spec.js";
 export * from "./risk.js";
 export * from "./recommendation.js";
+export * from "./availability.js";

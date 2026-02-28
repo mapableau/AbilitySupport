@@ -149,6 +149,7 @@ export type UrgencyLevel = (typeof URGENCY_LEVELS)[number];
 
 export const COORDINATION_STATUSES = [
   "open",
+  "awaiting_review",
   "matching",
   "matched",
   "booked",
@@ -195,6 +196,7 @@ export const FOLLOWUP_TYPES = [
   "feedback",
   "incident_report",
   "quality_review",
+  "verification",
 ] as const;
 export type FollowupType = (typeof FOLLOWUP_TYPES)[number];
 
