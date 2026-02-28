@@ -11,10 +11,12 @@
 import { serve } from "inngest/next";
 import { inngest } from "../../../lib/workflows/inngest/client.js";
 import { indexingFunctions } from "../../../lib/workflows/indexing.js";
+import { followupFunctions } from "../../../lib/workflows/followups.js";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     ...indexingFunctions,
+    ...followupFunctions,
   ],
 });

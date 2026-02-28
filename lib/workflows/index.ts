@@ -12,3 +12,4 @@
 export * from "./client.js";
 export * from "./events.js";
 export * from "./indexing.js";
+export * from "./followups.js";

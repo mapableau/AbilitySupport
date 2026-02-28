@@ -40,7 +40,7 @@ export type IndexingEvents = {
     };
   };
 
-  // ── Booking events (reserved for future workflows) ────────────────────
+  // ── Booking lifecycle ───────────────────────────────────────────────
 
   "booking/created": {
     data: {
@@ -49,11 +49,37 @@ export type IndexingEvents = {
       organisationId: string;
     };
   };
+  "booking/completed": {
+    data: {
+      bookingId: string;
+      participantId: string;
+      organisationId: string;
+      workerId?: string;
+    };
+  };
   "booking/cancelled": {
     data: {
       bookingId: string;
       participantId: string;
       reason?: string;
+    };
+  };
+
+  // ── Follow-up lifecycle ───────────────────────────────────────────────
+
+  "followup/created": {
+    data: {
+      followupId: string;
+      bookingId: string;
+      followupType: string;
+    };
+  };
+  "followup/response_received": {
+    data: {
+      followupId: string;
+      bookingId: string;
+      sentiment: "positive" | "neutral" | "negative";
+      hasAccessibilityMismatch: boolean;
     };
   };
 
