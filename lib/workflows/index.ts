@@ -5,9 +5,10 @@
  * and all registered step functions.
  *
  * Usage:
- *   import { inngest } from "@/lib/workflows";              // send events
- *   import { functions } from "@/lib/workflows/functions";   // register in route
+ *   import { inngest } from "@/lib/workflows";
+ *   import { indexingFunctions } from "@/lib/workflows/indexing";
  */
 
-export * from "./client";
-export * from "./events";
+export * from "./client.js";
+export * from "./events.js";
+export * from "./indexing.js";

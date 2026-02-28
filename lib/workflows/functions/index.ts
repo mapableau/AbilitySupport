@@ -1,13 +1,8 @@
 /**
- * lib/workflows/functions — Individual Inngest step functions.
+ * lib/workflows/functions — Re-exports all Inngest step functions.
  *
- * Each file exports one inngest.createFunction(...) call.
- * This barrel re-exports them all so the Next.js Inngest route handler
- * (app/api/inngest/route.ts) can register them in one import.
- *
- * Usage:
- *   import { functions } from "@/lib/workflows/functions";
- *   export const { GET, POST, PUT } = serve({ client: inngest, functions });
+ * Used by the Next.js route handler (app/api/inngest/route.ts) to
+ * register every function with Inngest's serve() helper.
  */
 
-export * from "./reindex-providers";
+export { indexingFunctions } from "../indexing.js";
