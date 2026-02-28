@@ -19,6 +19,8 @@
 
 ```
 lib/
+├── env.ts           # Zod-validated environment variables (crashes on bad config)
+│
 ├── db/              # Database access layer
 │   ├── client.ts    # Neon + Drizzle client singleton
 │   ├── schema.ts    # Drizzle table definitions (PostGIS, pgvector)
@@ -79,6 +81,7 @@ layers, but never the reverse.
    │     lib/db         │   Data access (Drizzle + Neon)
    └────────────────────┘
 
+   lib/env      ← imported by every module that reads process.env
    lib/schemas  ← imported at every layer for validation + type inference
    lib/workflows ← triggered by app/ routes, calls into db/search/risk via steps
 ```
@@ -100,6 +103,8 @@ layers, but never the reverse.
    `lib/search`, `lib/risk`, or `lib/db` for the real work.
 7. **`app/`** routes are responsible for auth (Clerk), input validation (Zod),
    and HTTP concerns. Business logic lives in `lib/`.
+8. **`lib/env`** is the only place that reads `process.env`. All other modules
+   import `env` from `@/lib/env` and use the validated, typed object.
 
 ## Indexing Strategy
 
