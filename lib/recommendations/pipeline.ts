@@ -14,12 +14,15 @@ import { matchSpecSchema } from "../schemas/match-spec.js";
 import { searchOrganisations, searchWorkers } from "./search.js";
 import { verifyAllCandidates } from "./verify.js";
 import { scoreOrgCandidate, rankRecommendations } from "./score.js";
+import { hydrateCards } from "./hydrate.js";
 import type {
   CoordinationRequestRow,
   LoadedRequest,
   ScoredRecommendation,
+  VerifiedOrgCandidate,
   GroupedRecommendations,
 } from "./types.js";
+import type { RecommendationCard } from "./card.js";
 
 const TOP_N = 20;
 
@@ -35,6 +38,18 @@ async function loadCoordinationRequest(
   // return row ?? null;
   console.log(`[pipeline] loadCoordinationRequest(${requestId}) — stub`);
   return null;
+}
+
+async function fetchEvidenceCounts(
+  entityKeys: Array<{ entityType: string; entityId: string }>,
+): Promise<Map<string, { total: number; verified: number }>> {
+  // TODO: SELECT entity_type, entity_id, count(*) as total,
+  //   count(*) FILTER (WHERE verified) as verified
+  //   FROM evidence_refs WHERE active = true
+  //   AND (entity_type, entity_id) IN (...)
+  //   GROUP BY entity_type, entity_id
+  console.log(`[pipeline] fetchEvidenceCounts(${entityKeys.length} keys) — stub`);
+  return new Map();
 }
 
 async function persistRecommendations(
@@ -172,16 +187,37 @@ export async function runRecommendationPipeline(
     });
   }
 
-  // 6. Group into combined vs split
-  const { combined, split } = groupRecommendations(
+  // 6. Group into combined vs split (still ScoredRecommendation at this stage)
+  const { combined: combinedScored, split: splitScored } = groupRecommendations(
     matchSpec.requestType,
     ranked,
     orgDocs,
   );
 
   // 7. Persist recommendation rows (idempotent — deletes then inserts)
-  const allRecs = [...combined, ...split.care, ...split.transport];
-  await persistRecommendations(requestId, allRecs);
+  const allScored = [...combinedScored, ...splitScored.care, ...splitScored.transport];
+  await persistRecommendations(requestId, allScored);
+
+  // 8. Build verified candidate map for hydration (keyed by org entity_id)
+  const verifiedMap = new Map<string, VerifiedOrgCandidate>();
+  for (const v of verified) {
+    verifiedMap.set(v.doc.entity_id, v);
+  }
+
+  // 9. Fetch evidence counts for all referenced orgs + workers
+  const entityKeys: Array<{ entityType: string; entityId: string }> = [];
+  for (const r of allScored) {
+    entityKeys.push({ entityType: "organisation", entityId: r.organisationId });
+    if (r.workerId) entityKeys.push({ entityType: "worker", entityId: r.workerId });
+  }
+  const evidenceCountsMap = await fetchEvidenceCounts(entityKeys);
+
+  // 10. Hydrate into RecommendationCards
+  const combined = hydrateCards(combinedScored, verifiedMap, evidenceCountsMap);
+  const split = {
+    care: hydrateCards(splitScored.care, verifiedMap, evidenceCountsMap),
+    transport: hydrateCards(splitScored.transport, verifiedMap, evidenceCountsMap),
+  };
 
   return {
     requestId,
@@ -191,7 +227,7 @@ export async function runRecommendationPipeline(
     meta: {
       totalCandidatesSearched: totalSearched,
       totalVerified: eligible.length,
-      totalReturned: allRecs.length,
+      totalReturned: allScored.length,
       generatedAt: new Date().toISOString(),
     },
   };

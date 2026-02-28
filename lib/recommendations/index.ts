@@ -9,9 +9,16 @@
  */
 
 export { runRecommendationPipeline, PipelineError } from "./pipeline.js";
+export { hydrateCard, hydrateCards } from "./hydrate.js";
 export type {
   GroupedRecommendations,
   ScoredRecommendation,
   CoordinationRequestRow,
   LoadedRequest,
 } from "./types.js";
+export type {
+  RecommendationCard,
+  CardOrganisation,
+  CardWorker,
+  CardVerification,
+} from "./card.js";

@@ -93,17 +93,23 @@ export interface ScoredRecommendation {
 
 // ── Grouped response ───────────────────────────────────────────────────────
 
+import type { RecommendationCard } from "./card.js";
+
 /**
  * Combined: a single org can handle both care and transport.
  * Split: separate orgs for care and transport legs.
+ *
+ * The API returns RecommendationCard (hydrated DTOs) so the UI renders
+ * instantly without extra calls. Internal pipeline stages use
+ * ScoredRecommendation; hydration happens at the end.
  */
 export interface GroupedRecommendations {
   requestId: string;
   requestType: string;
-  combined: ScoredRecommendation[];
+  combined: RecommendationCard[];
   split: {
-    care: ScoredRecommendation[];
-    transport: ScoredRecommendation[];
+    care: RecommendationCard[];
+    transport: RecommendationCard[];
   };
   meta: {
     totalCandidatesSearched: number;
