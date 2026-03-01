@@ -27,3 +27,4 @@ export * from "./followup.js";
 export * from "./evidence.js";
 export * from "./calendar.js";
 export * from "./needs-profile.js";
+export * from "./outcome.js";

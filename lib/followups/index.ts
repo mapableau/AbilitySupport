@@ -1,9 +1,17 @@
 /**
  * lib/followups — Post-service follow-up system.
  *
- * Signal analysis, escalation, and data access for the followup lifecycle.
+ * Signal analysis, outcome capture, escalation, and data access.
  */
 
 export * from "./types.js";
 export { analyseFollowupResponse } from "./signals.js";
 export * from "./data.js";
+export {
+  analyseOutcome,
+  persistOutcome,
+  adjustReliabilityScore,
+  updateContinuityPreference,
+  appendToNeedsProfile,
+  type OutcomeAnalysis,
+} from "./outcomes.js";
