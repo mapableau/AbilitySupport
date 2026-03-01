@@ -11,6 +11,7 @@
 export { runRecommendationPipeline, PipelineError } from "./pipeline.js";
 export { hydrateCard, hydrateCards } from "./hydrate.js";
 export { SCORE_WEIGHTS } from "./score.js";
+export { reorderRecommendations, type ReorderInput, type ReorderResult } from "./reorder.js";
 export type {
   GroupedRecommendations,
   ScoredRecommendation,
