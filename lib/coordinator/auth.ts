@@ -1,26 +1,19 @@
 /**
- * lib/coordinator/auth.ts — Auth helpers for coordinator routes.
+ * lib/coordinator/auth.ts — Re-exports coordinator auth from lib/auth.
  *
- * Verifies the caller has the coordinator or admin role.
- * Stubbed until Clerk is wired up.
+ * Kept for backwards compatibility with existing route imports.
+ * New code should import from "@/lib/auth" directly.
  */
 
-import type { CoordinatorAuthContext } from "./types.js";
+import {
+  getCoordinatorAuth as _getCoordinatorAuth,
+  unauthorizedResponse as _unauthorizedResponse,
+} from "../auth/session.js";
 
-export async function getCoordinatorAuth(
-  request: Request,
-): Promise<CoordinatorAuthContext | null> {
-  // TODO: replace with Clerk auth
-  //   const { userId } = auth();
-  //   verify user has role 'coordinator' or 'admin'
-  const userId = request.headers.get("x-user-id");
-  if (!userId) return null;
-  return { userId };
-}
+export type { CoordinatorAuthContext } from "./types.js";
+
+export const getCoordinatorAuth = _getCoordinatorAuth;
 
 export function unauthorizedResponse(): Response {
-  return Response.json(
-    { error: "Unauthorized. Coordinator or admin role required." },
-    { status: 401 },
-  );
+  return _unauthorizedResponse("Unauthorized. Coordinator or admin role required.");
 }

@@ -18,6 +18,7 @@
 
 export const USER_ROLES = [
   "admin",
+  "auditor",
   "coordinator",
   "participant",
   "provider_admin",
