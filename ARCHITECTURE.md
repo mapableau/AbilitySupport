@@ -319,16 +319,25 @@ lib/
 
 ## Environment Variables
 
-| Variable | Module | Required | Description |
+Validated at startup by `lib/env.ts` (Zod). Build fails if any required
+variable is missing. See `docs/ENVIRONMENT.md` for the full reference
+including Vercel setup steps.
+
+| Variable | Module | Tier | Description |
 |---|---|---|---|
-| `DATABASE_URL` | `lib/db` | Yes | Neon pooled connection string |
-| `CLERK_SECRET_KEY` | `lib/auth` | Yes | Clerk backend secret |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `app/` | Yes | Clerk frontend key |
-| `TYPESENSE_HOST` | `lib/search` | Yes | Typesense Cloud host |
-| `TYPESENSE_API_KEY` | `lib/search` | Yes | Admin API key (server only) |
-| `TYPESENSE_SEARCH_KEY` | `lib/search` | No | Scoped search key (client safe) |
-| `INNGEST_EVENT_KEY` | `lib/workflows` | Yes | Event ingestion key |
-| `INNGEST_SIGNING_KEY` | `lib/workflows` | No | Webhook verification key |
-| `OPENAI_API_KEY` | `lib/ai` | No | OpenAI API key |
-| `ANTHROPIC_API_KEY` | `lib/ai` | No | Anthropic API key |
-| `BLOB_READ_WRITE_TOKEN` | evidence uploads | No | Vercel Blob token |
+| `DATABASE_URL` | `lib/db` | Required | Neon pooled connection string |
+| `CLERK_SECRET_KEY` | `lib/auth` | Required | Clerk backend secret |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | `app/` | Required | Clerk frontend key |
+| `TYPESENSE_HOST` | `lib/search` | Required | Typesense Cloud host |
+| `TYPESENSE_API_KEY` | `lib/search` | Required | Admin API key (server only) |
+| `INNGEST_EVENT_KEY` | `lib/workflows` | Required | Event ingestion key |
+| `VERCEL_PROJECT_ID` | deployment | Prod-required | Vercel project identifier |
+| `VERCEL_TOKEN` | deployment | Prod-required | Vercel API token |
+| `INNGEST_SIGNING_KEY` | `lib/workflows` | Prod-required | Webhook signature verification |
+| `CLERK_WEBHOOK_SECRET` | `lib/auth` | Prod-required | Clerk webhook signing secret |
+| `CLERK_SSO_DISAPEDIA_CONNECTION_ID` | `lib/auth` | Optional | Disapedia OIDC connection ID |
+| `CLERK_SSO_ACCESSIBOOKS_CONNECTION_ID` | `lib/auth` | Optional | AccessiBooks SAML connection ID |
+| `TYPESENSE_SEARCH_KEY` | `lib/search` | Optional | Scoped search key (client safe) |
+| `OPENAI_API_KEY` | `lib/ai` | Optional | OpenAI API key |
+| `ANTHROPIC_API_KEY` | `lib/ai` | Optional | Anthropic API key |
+| `BLOB_READ_WRITE_TOKEN` | evidence uploads | Optional | Vercel Blob token |

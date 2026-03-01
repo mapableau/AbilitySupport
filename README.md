@@ -35,9 +35,22 @@ pnpm install
 cp .env.example .env.local
 ```
 
-Fill in the required values in `.env.local`. See `.env.example` for
-descriptions. The app validates all env vars at startup via `lib/env.ts` and
-will crash with a clear error listing any missing variables.
+Fill in the required values — at minimum:
+
+| Variable | Where to get it |
+|---|---|
+| `DATABASE_URL` | Neon console → Connection Details |
+| `CLERK_SECRET_KEY` | Clerk dashboard → API Keys |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk dashboard → API Keys |
+| `TYPESENSE_HOST` | Typesense Cloud → Cluster |
+| `TYPESENSE_API_KEY` | Typesense Cloud → API Keys |
+| `INNGEST_EVENT_KEY` | Inngest dashboard → Event Key |
+
+The app validates all env vars at startup via `lib/env.ts` and will crash
+with a clear error listing any missing or malformed variables.
+
+See `docs/ENVIRONMENT.md` for the full variable reference, production
+requirements, federation SSO setup, and Vercel deployment instructions.
 
 ### 3. Set up the database
 

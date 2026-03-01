@@ -5,15 +5,33 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 // Validated once at import time. If any required variable is missing the
 // process exits with a human-readable error listing every issue.
-// Optional variables are typed as `string | undefined` so call-sites must
-// handle the absent case explicitly.
+//
+// Three tiers:
+//   Required    — always required; build fails without them
+//   Production  — required when NODE_ENV=production; optional in dev
+//   Optional    — typed as string | undefined; call-sites handle absence
 // ---------------------------------------------------------------------------
 
+const nodeEnvSchema = z
+  .enum(["development", "test", "production"])
+  .default("development");
+
+const currentNodeEnv = nodeEnvSchema.parse(process.env.NODE_ENV);
+const isProd = currentNodeEnv === "production";
+
+function requiredInProd() {
+  return isProd
+    ? z.string().min(1, "Required in production")
+    : z.string().min(1).optional();
+}
+
 const serverSchema = z.object({
+  NODE_ENV: nodeEnvSchema,
+
   // ── Database (Neon) ─────────────────────────────────────────────────────
   DATABASE_URL: z
     .string()
-    .url()
+    .url("Must be a valid URL")
     .startsWith("postgres", "Must be a Postgres connection string"),
 
   // ── Auth (Clerk) ────────────────────────────────────────────────────────
@@ -24,6 +42,10 @@ const serverSchema = z.object({
     .string()
     .startsWith("pk_", "Must start with pk_"),
 
+  // ── Vercel deployment ───────────────────────────────────────────────────
+  VERCEL_PROJECT_ID: requiredInProd(),
+  VERCEL_TOKEN: requiredInProd(),
+
   // ── Search (Typesense Cloud) ────────────────────────────────────────────
   TYPESENSE_HOST: z.string().min(1),
   TYPESENSE_API_KEY: z.string().min(1),
@@ -33,7 +55,14 @@ const serverSchema = z.object({
 
   // ── Workflows (Inngest) ─────────────────────────────────────────────────
   INNGEST_EVENT_KEY: z.string().min(1),
-  INNGEST_SIGNING_KEY: z.string().min(1).optional(),
+  INNGEST_SIGNING_KEY: requiredInProd(),
+
+  // ── Federation SSO (Disapedia OIDC + AccessiBooks SAML) ─────────────────
+  // Configured in Clerk dashboard; these env vars pass connection IDs and
+  // optional webhook secrets so the app can verify federation callbacks.
+  CLERK_SSO_DISAPEDIA_CONNECTION_ID: z.string().min(1).optional(),
+  CLERK_SSO_ACCESSIBOOKS_CONNECTION_ID: z.string().min(1).optional(),
+  CLERK_WEBHOOK_SECRET: requiredInProd(),
 
   // ── AI ──────────────────────────────────────────────────────────────────
   OPENAI_API_KEY: z
@@ -45,19 +74,17 @@ const serverSchema = z.object({
     .startsWith("sk-ant-", "Must start with sk-ant-")
     .optional(),
 
-  // ── Storage (Vercel Blob — optional) ────────────────────────────────────
+  // ── Storage (Vercel Blob) ──────────────────────────────────────────────
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
-
-  // ── Runtime meta ────────────────────────────────────────────────────────
-  NODE_ENV: z
-    .enum(["development", "test", "production"])
-    .default("development"),
 });
 
 export type ServerEnv = z.infer<typeof serverSchema>;
 
 // ---------------------------------------------------------------------------
 // Client-side environment schema (NEXT_PUBLIC_* only)
+// ---------------------------------------------------------------------------
+// Validated separately because client bundles cannot access server env vars.
+// Call validateClientEnv() from a root layout to get early feedback.
 // ---------------------------------------------------------------------------
 
 const clientSchema = z.object({
@@ -89,7 +116,9 @@ function validateEnv(): ServerEnv {
         "└─────────────────────────────────────────────┘\n\n" +
         formatted +
         "\n\n" +
-        "Hint: copy .env.example to .env.local and fill in the values.\n",
+        `Environment: ${currentNodeEnv}\n` +
+        "Hint: copy .env.example to .env.local and fill in the values.\n" +
+        "See docs/ENVIRONMENT.md for the full reference.\n",
     );
     process.exit(1);
   }
@@ -114,22 +143,18 @@ export const env: ServerEnv = validateEnv();
  * Call from a client component or layout to get early feedback.
  */
 export function validateClientEnv(): ClientEnv {
-  // In browser, NEXT_PUBLIC_* are inlined at build time, so we read them
-  // from the global scope rather than process.env.
-  const raw: Record<string, unknown> = {};
-  if (typeof window !== "undefined") {
-    raw.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY =
-      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  } else {
-    raw.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY =
-      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
-  }
+  const raw: Record<string, unknown> = {
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
+      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+  };
 
   const result = clientSchema.safeParse(raw);
   if (!result.success) {
     throw new Error(
       "Invalid client environment variables:\n" +
-        result.error.issues.map((i) => `  ✗ ${i.path.join(".")}: ${i.message}`).join("\n"),
+        result.error.issues
+          .map((i) => `  ✗ ${i.path.join(".")}: ${i.message}`)
+          .join("\n"),
     );
   }
   return result.data;
