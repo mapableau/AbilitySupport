@@ -80,7 +80,8 @@
     "roots": [
       "<rootDir>/src",
       "<rootDir>/lib",
-      "<rootDir>/tools"
+      "<rootDir>/tools",
+      "<rootDir>/test"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
