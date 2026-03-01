@@ -110,6 +110,60 @@ export const ssoLinks = pgTable("sso_links", {
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// availability_slots — worker/vehicle time windows
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const availabilitySlots = pgTable("availability_slots", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  workerId: uuid("worker_id"),
+  vehicleId: uuid("vehicle_id"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  recurrenceRule: text("recurrence_rule"),
+  isAvailable: boolean("is_available").default(true).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_avail_slots_worker_id").on(t.workerId),
+  index("idx_avail_slots_vehicle_id").on(t.vehicleId),
+  index("idx_avail_slots_starts_at").on(t.startsAt),
+  index("idx_avail_slots_time_range").on(t.startsAt, t.endsAt),
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// calendar_events — unified calendar view for bookings + availability
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const calendarEvents = pgTable("calendar_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }),
+  organisationId: uuid("organisation_id"),
+  workerId: uuid("worker_id"),
+  vehicleId: uuid("vehicle_id"),
+  participantProfileId: uuid("participant_profile_id"),
+  eventType: text("event_type").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceId: uuid("source_id"),
+  startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
+  endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
+  allDay: boolean("all_day").default(false).notNull(),
+  recurrenceRule: text("recurrence_rule"),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").default("confirmed").notNull(),
+  color: text("color"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_cal_events_user_id").on(t.userId),
+  index("idx_cal_events_org_id").on(t.organisationId),
+  index("idx_cal_events_worker_id").on(t.workerId),
+  index("idx_cal_events_starts_at").on(t.startsAt),
+  index("idx_cal_events_time_range").on(t.startsAt, t.endsAt),
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // audit_log — immutable append-only log of data access and mutations
 // ═══════════════════════════════════════════════════════════════════════════
 
