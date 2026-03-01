@@ -24,5 +24,6 @@
 export { db, type Database } from "./client.js";
 export { query } from "./query.js";
 export { withTransaction } from "./tx.js";
+export { withRlsContext, buildRlsContext, type RlsContext } from "./rls.js";
 export { audit, type AuditEntry } from "./audit.js";
 export * from "./schema.js";
