@@ -164,6 +164,29 @@ export const calendarEvents = pgTable("calendar_events", {
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// needs_profiles — dynamic participant needs snapshots (time-series)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const needsProfiles = pgTable("needs_profiles", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  participantId: uuid("participant_id").notNull(),
+  recordedAt: timestamp("recorded_at", { withTimezone: true }).defaultNow().notNull(),
+  recordedBy: uuid("recorded_by").references(() => users.id),
+  functionalNeeds: text("functional_needs").array().default([]).notNull(),
+  emotionalState: text("emotional_state").default("calm").notNull(),
+  urgencyLevel: text("urgency_level").default("routine").notNull(),
+  activityGoal: text("activity_goal").default("care").notNull(),
+  contextTags: text("context_tags").array().default([]).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index("idx_needs_profiles_participant").on(t.participantId),
+  index("idx_needs_profiles_recorded_at").on(t.recordedAt),
+  index("idx_needs_profiles_urgency").on(t.urgencyLevel),
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // audit_log — immutable append-only log of data access and mutations
 // ═══════════════════════════════════════════════════════════════════════════
 

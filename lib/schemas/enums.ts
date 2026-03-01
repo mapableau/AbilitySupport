@@ -78,6 +78,53 @@ export const CONSENT_TYPES = [
 ] as const;
 export type ConsentType = (typeof CONSENT_TYPES)[number];
 
+// ── Needs Profiles (dynamic participant state) ─────────────────────────────
+
+export const FUNCTIONAL_NEEDS = [
+  "aac",
+  "cognitive_support",
+  "communication_support",
+  "hearing_support",
+  "manual_handling",
+  "medication_admin",
+  "mobility_assistance",
+  "personal_care",
+  "sensory_support",
+  "vision_support",
+  "wheelchair",
+  "wheelchair_transfer",
+] as const;
+export type FunctionalNeed = (typeof FUNCTIONAL_NEEDS)[number];
+
+export const EMOTIONAL_STATES = [
+  "agitated",
+  "anxious",
+  "calm",
+  "distressed",
+  "positive",
+  "stressed",
+  "withdrawn",
+] as const;
+export type EmotionalState = (typeof EMOTIONAL_STATES)[number];
+
+export const NEEDS_URGENCY_LEVELS = [
+  "routine",
+  "soon",
+  "urgent",
+] as const;
+export type NeedsUrgencyLevel = (typeof NEEDS_URGENCY_LEVELS)[number];
+
+export const ACTIVITY_GOALS = [
+  "care",
+  "community_access",
+  "errands",
+  "medical",
+  "social",
+  "therapy",
+  "transport",
+] as const;
+export type ActivityGoal = (typeof ACTIVITY_GOALS)[number];
+
 // ── Risk ───────────────────────────────────────────────────────────────────
 
 export const RISK_TIERS = [
