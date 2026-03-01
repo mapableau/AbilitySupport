@@ -24,6 +24,7 @@ import {
   adjustReliabilityScore,
   updateContinuityPreference,
   appendToNeedsProfile,
+  applyAndSaveWeightAdjustments,
 } from "../../../../../lib/followups/outcomes.js";
 import {
   getAuthContext,
@@ -79,6 +80,11 @@ export async function POST(request: Request, ctx: RouteContext): Promise<Respons
     );
   }
 
+  await applyAndSaveWeightAdjustments(
+    parsed.data.participantProfileId,
+    analysis.weightAdjustments,
+  );
+
   let needsProfileId: string | null = null;
   if (analysis.needsProfileUpdate) {
     needsProfileId = await appendToNeedsProfile(
@@ -125,6 +131,7 @@ export async function POST(request: Request, ctx: RouteContext): Promise<Respons
       needsProfileId,
       continuityChanged: analysis.continuityChanged,
       aftercareRequired: analysis.aftercareRequired,
+      weightAdjustments: analysis.weightAdjustments,
       flags: analysis.flags,
     },
   }, { status: 201 });

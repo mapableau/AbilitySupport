@@ -13,5 +13,6 @@ export {
   adjustReliabilityScore,
   updateContinuityPreference,
   appendToNeedsProfile,
+  applyAndSaveWeightAdjustments,
   type OutcomeAnalysis,
 } from "./outcomes.js";

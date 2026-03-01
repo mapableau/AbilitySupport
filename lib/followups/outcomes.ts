@@ -10,6 +10,17 @@
 
 import type { CreateOutcomeInput, ServiceOutcome, ContinuityPreference } from "../schemas/outcome.js";
 import type { Sentiment } from "./types.js";
+import type { WeightAdjustment } from "../preferences/weights.js";
+import {
+  computeWeightAdjustments,
+  applyWeightAdjustments,
+  parseWeights,
+  DEFAULT_WEIGHTS,
+} from "../preferences/weights.js";
+import {
+  loadPreferenceWeights,
+  savePreferenceWeights,
+} from "../preferences/data.js";
 
 // ── Outcome analysis (pure) ────────────────────────────────────────────────
 
@@ -19,6 +30,7 @@ export interface OutcomeAnalysis {
   needsProfileUpdate: boolean;
   continuityChanged: boolean;
   aftercareRequired: boolean;
+  weightAdjustments: WeightAdjustment[];
   flags: string[];
 }
 
@@ -66,12 +78,20 @@ export function analyseOutcome(input: CreateOutcomeInput): OutcomeAnalysis {
     flags.push("Emotional aftercare requested");
   }
 
+  const weightAdjustments = computeWeightAdjustments(input);
+  for (const adj of weightAdjustments) {
+    if (adj.delta !== 0) {
+      flags.push(`Weight ${adj.key}: ${adj.delta > 0 ? "+" : ""}${adj.delta.toFixed(2)} — ${adj.reason}`);
+    }
+  }
+
   return {
     sentiment,
     reliabilityDelta,
     needsProfileUpdate,
     continuityChanged,
     aftercareRequired: input.emotionalAftercareNeeded,
+    weightAdjustments,
     flags,
   };
 }
@@ -136,6 +156,22 @@ export async function updateContinuityPreference(
   console.log(
     `[outcomes] updateContinuityPreference(${participantProfileId}, ${preference}) — stub`,
   );
+}
+
+/**
+ * Apply weight adjustments from an outcome analysis to the participant's
+ * stored preference weights and persist the updated values.
+ */
+export async function applyAndSaveWeightAdjustments(
+  participantProfileId: string,
+  adjustments: WeightAdjustment[],
+): Promise<void> {
+  if (adjustments.length === 0) return;
+
+  const current = await loadPreferenceWeights(participantProfileId);
+  const weights = current ?? { ...DEFAULT_WEIGHTS };
+  const updated = applyWeightAdjustments(weights, adjustments);
+  await savePreferenceWeights(participantProfileId, updated);
 }
 
 export async function appendToNeedsProfile(
