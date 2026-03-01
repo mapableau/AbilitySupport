@@ -19,12 +19,14 @@ AI-assisted support coordination platform for Care + Transport (NDIS).
 | Build | `pnpm run build` |
 | Format | `pnpm run format` |
 
-**Module structure:** All shared business logic lives in `lib/` with six modules: `db`, `schemas`, `risk`, `search`, `workflows`, `ai`. Each module has an `index.ts` barrel export. See `ARCHITECTURE.md` for boundaries and rules.
+**Module structure:** All shared business logic lives in `lib/` with 12 modules: `auth`, `db`, `schemas`, `risk`, `search`, `recommendations`, `coordinator`, `provider-pool`, `evidence`, `followups`, `workflows`, `ai`. Each module has an `index.ts` barrel export. See `ARCHITECTURE.md` for boundaries and rules.
 
 **Gotchas:**
 
 - `pnpm.onlyBuiltDependencies` in `package.json` whitelists packages for postinstall scripts. If a new dependency requires build scripts, add it to that list rather than running `pnpm approve-builds` (which is interactive and blocks in CI/cloud).
 - ESLint uses flat config (`eslint.config.mjs`). The lint script includes `--fix` by default.
+- `lib/auth` is the only module that touches Clerk. All route handlers import auth contexts from `lib/auth`, never from Clerk directly.
 - `lib/risk` is pure functions — no DB calls, no side effects. Keep it that way for testability.
 - `lib/ai` tool `execute()` functions should be thin wrappers delegating to `lib/search`, `lib/risk`, or `lib/db`.
 - `lib/workflows` functions must be idempotent (Inngest retries on failure).
+- `docs/` contains design documents for federation (OIDC/SAML) and consent/privacy. Keep these updated when changing auth or data access patterns.
