@@ -68,8 +68,11 @@ export type CommunicationMethod = (typeof COMMUNICATION_METHODS)[number];
 
 export const CONSENT_TYPES = [
   "data_sharing",
+  "learning",
+  "location",
   "medical_info",
   "plan_management",
+  "preference",
   "service_agreement",
   "transport",
 ] as const;
