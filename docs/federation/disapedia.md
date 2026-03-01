@@ -230,7 +230,59 @@ changed in Disapedia) → `syncUserFromClerk()` updates the existing row.
 | Session fixation | Clerk generates a new session on every authentication event. |
 | CSRF | Clerk uses `state` + `nonce` parameters in OIDC flow. PKCE prevents code interception. |
 
-## 9. Rollback Plan
+## 9. Development & Testing
+
+### Mock Disapedia IdP
+
+A self-contained mock OIDC provider is available for local development
+and CI testing. It serves all the endpoints listed in § 4 with
+deterministic test users.
+
+```bash
+pnpm mock:idp
+# Starts on http://localhost:4180
+```
+
+| Endpoint | URL |
+|---|---|
+| Discovery | `http://localhost:4180/.well-known/openid-configuration` |
+| Authorization | `http://localhost:4180/authorize?test_user=test-disapedia-001` |
+| Token | `POST http://localhost:4180/token` |
+| UserInfo | `http://localhost:4180/userinfo` |
+| JWKS | `http://localhost:4180/jwks` |
+| Health | `http://localhost:4180/health` |
+
+Test users:
+
+| sub | Name | Groups | Expected role |
+|---|---|---|---|
+| `test-disapedia-001` | Alice Test | editors | participant |
+| `test-disapedia-002` | Bob Reviewer | editors, accessibility_reviewers | auditor |
+| `test-disapedia-003` | Charlie Inactive | (none, email_verified=false) | participant |
+
+Config: `config/federation/disapedia-oidc.test.json`
+Source: `tools/mock-disapedia-idp/`
+
+Integration tests (`tools/mock-disapedia-idp/idp.spec.ts`) verify:
+- Discovery document structure
+- JWKS key format
+- Authorization code flow
+- Token exchange with id_token claim extraction
+- Full claim mapping: IdP claims → Clerk payload → `FederatedIdentity` → role
+
+### Real MediaWiki (optional)
+
+For staging with a real MediaWiki + OAuth extension:
+
+```bash
+docker compose -f tools/mock-disapedia-idp/docker-compose.mediawiki.yml up -d
+# MediaWiki: http://localhost:8080
+```
+
+See `docker-compose.mediawiki.yml` for post-setup steps (install OAuth
+extension, create consumer, configure Clerk SSO connection).
+
+## 10. Rollback Plan
 
 If federation needs to be disabled:
 

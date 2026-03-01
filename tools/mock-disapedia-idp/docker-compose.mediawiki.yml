@@ -1,0 +1,58 @@
+# docker-compose.mediawiki.yml — Real MediaWiki instance with OAuth extension.
+#
+# For staging/integration testing with a real MediaWiki IdP instead of the mock.
+# Most developers should use the mock IdP (pnpm mock:idp) instead.
+#
+# Usage:
+#   docker compose -f tools/mock-disapedia-idp/docker-compose.mediawiki.yml up -d
+#   # MediaWiki: http://localhost:8080
+#   # Admin login: admin / mediawiki-test-pass
+
+services:
+  mediawiki-db:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: mediawiki-root
+      MYSQL_DATABASE: mediawiki
+      MYSQL_USER: mediawiki
+      MYSQL_PASSWORD: mediawiki-pass
+    volumes:
+      - mediawiki-db-data:/var/lib/mysql
+
+  mediawiki:
+    image: mediawiki:1.42
+    ports:
+      - "8080:80"
+    environment:
+      MEDIAWIKI_DB_HOST: mediawiki-db
+      MEDIAWIKI_DB_NAME: mediawiki
+      MEDIAWIKI_DB_USER: mediawiki
+      MEDIAWIKI_DB_PASSWORD: mediawiki-pass
+    volumes:
+      - mediawiki-data:/var/www/html
+      # Mount LocalSettings.php after initial setup:
+      # - ./LocalSettings.php:/var/www/html/LocalSettings.php
+    depends_on:
+      - mediawiki-db
+
+volumes:
+  mediawiki-db-data:
+  mediawiki-data:
+
+# ─── Post-setup steps ─────────────────────────────────────────────────
+#
+# 1. Run the MediaWiki installer at http://localhost:8080
+# 2. Download LocalSettings.php
+# 3. Install the OAuth extension:
+#      docker compose exec mediawiki bash
+#      cd /var/www/html/extensions
+#      git clone https://gerrit.wikimedia.org/r/mediawiki/extensions/OAuth
+#      cd /var/www/html
+#      php maintenance/update.php
+# 4. Add to LocalSettings.php:
+#      wfLoadExtension( 'OAuth' );
+#      $wgGroupPermissions['sysop']['mwoauthproposeconsumer'] = true;
+#      $wgGroupPermissions['sysop']['mwoauthmanageconsumer'] = true;
+#      $wgGroupPermissions['sysop']['mwoauthupdateownconsumer'] = true;
+# 5. Create an OAuth consumer at Special:OAuthConsumerRegistration
+# 6. Set the callback URL to Clerk's SSO endpoint

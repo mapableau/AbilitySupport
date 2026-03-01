@@ -21,7 +21,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "mock:idp": "ts-node tools/mock-disapedia-idp/server.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -78,7 +79,8 @@
     ],
     "roots": [
       "<rootDir>/src",
-      "<rootDir>/lib"
+      "<rootDir>/lib",
+      "<rootDir>/tools"
     ],
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
