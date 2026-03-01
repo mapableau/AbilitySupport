@@ -1,135 +1,127 @@
 # lib/db — Database Access Layer
 
-Neon Postgres via **Drizzle ORM**, with two connection modes.
+Neon Postgres via **Drizzle ORM**, with three access patterns and an
+audit log helper.
 
-## Connection Modes
+## Access Patterns
 
 | Export | Transport | Use case |
 |---|---|---|
-| `db` | Neon HTTP | Default for queries. Stateless, edge-compatible. |
-| `withTransaction(fn)` | Neon WebSocket Pool | Interactive transactions that read then write. |
+| `db` | Neon HTTP | Typed Drizzle queries. Stateless, edge-compatible. |
+| `query` | Neon HTTP | Raw SQL via tagged template (PostGIS, CTEs). |
+| `withTransaction(fn)` | Neon WebSocket Pool | Interactive transactions (read-then-write). |
+| `audit(entry)` | Neon HTTP | Fire-and-forget audit log writes. |
 
-### When to use which
+### Choosing the right pattern
 
-Use `db` for everything unless you need to **read intermediate results
-inside a transaction** to decide what to do next. The HTTP driver sends each
-Drizzle call as a single stateless request — fast and cheap, but it cannot
-hold a Postgres transaction open across multiple round-trips.
-
-`withTransaction()` opens a WebSocket to Neon and gives you a real
-interactive transaction. The callback receives a Drizzle `tx` handle that
-commits on success and rolls back on throw.
+- **`db`** — default for everything. Type-safe, composable, edge-compatible.
+- **`query`** — when Drizzle's query builder doesn't support a feature (e.g. `ST_Distance`, raw CTEs, `EXPLAIN ANALYZE`). Parameters are auto-escaped.
+- **`withTransaction()`** — when you need to read intermediate results inside a transaction to decide what to do next.
+- **`audit()`** — write an immutable audit log entry. Non-blocking — never breaks user flows.
 
 ```ts
-import { db, withTransaction, participants } from "@/lib/db";
+import { db, query, withTransaction, audit, users } from "@/lib/db";
 import { eq } from "drizzle-orm";
 
-// Simple query — uses HTTP, no transaction
-const all = await db.select().from(participants);
+// Typed query
+const [user] = await db.select().from(users).where(eq(users.email, email));
 
-// Interactive transaction — uses WebSocket Pool
+// Raw SQL
+const rows = await query`SELECT count(*) FROM users WHERE active = ${true}`;
+
+// Interactive transaction
 const result = await withTransaction(async (tx) => {
-  const [p] = await tx
-    .select()
-    .from(participants)
-    .where(eq(participants.id, someId));
+  const [u] = await tx.select().from(users).where(eq(users.id, id));
+  if (!u) throw new Error("Not found");
+  await tx.update(users).set({ active: false }).where(eq(users.id, id));
+  return u;
+});
 
-  if (!p.active) throw new Error("Participant is inactive");
-
-  await tx
-    .update(participants)
-    .set({ active: false })
-    .where(eq(participants.id, someId));
-
-  return p;
+// Audit log
+await audit({
+  userId: user.id,
+  action: "update",
+  entityType: "users",
+  entityId: user.id,
+  summary: "Deactivated user account",
 });
 ```
 
-## Migrations (Drizzle Kit)
+## Core Tables (Drizzle schema)
 
-We use **Drizzle Kit** for schema migrations. The workflow:
-
-### 1. Edit the schema
-
-Modify column/table definitions in `lib/db/schema.ts`.
-
-### 2. Generate a migration
-
-```bash
-pnpm db:generate
-```
-
-This diffs `schema.ts` against the previous snapshot and writes a SQL
-migration file into the `drizzle/` directory at the project root.
-
-### 3. Review the generated SQL
-
-Always inspect the migration before applying. Drizzle Kit generates
-readable, standard SQL — check for destructive operations (DROP COLUMN,
-ALTER TYPE, etc.) before proceeding.
-
-### 4. Apply the migration
-
-```bash
-# Against your Neon branch / dev database:
-pnpm db:migrate
-
-# Or, for rapid prototyping without versioned migration files:
-pnpm db:push
-```
-
-`db:migrate` applies pending migration files in order (recommended for
-production). `db:push` syncs the schema directly without generating files
-(convenient during early development, not recommended for production).
-
-### 5. Inspect the database
-
-```bash
-pnpm db:studio
-```
-
-Opens Drizzle Studio (web UI) connected to your database for browsing
-tables and data.
-
-## Scripts Reference
-
-| Script | Command | Purpose |
+| Table | File | Purpose |
 |---|---|---|
-| `pnpm db:generate` | `drizzle-kit generate` | Generate migration SQL from schema diff |
-| `pnpm db:migrate` | `drizzle-kit migrate` | Apply pending migrations |
-| `pnpm db:push` | `drizzle-kit push` | Push schema directly (no migration files) |
-| `pnpm db:studio` | `drizzle-kit studio` | Open Drizzle Studio UI |
+| `users` | `schema.ts` | Clerk-synced identity (clerk_id → internal uuid) |
+| `roles` | `schema.ts` | RBAC: admin, coordinator, participant, provider_admin, worker |
+| `consents` | `schema.ts` | NDIS consent records with temporal validity |
+| `audit_log` | `schema.ts` | Immutable append-only access/mutation log |
+
+Additional tables (organisations, workers, bookings, etc.) are defined in
+`db/migrations/0001_core.sql` and will be added to `schema.ts` as the
+Drizzle migration path catches up.
+
+## Migrations
+
+MapAble uses two migration strategies side by side:
+
+### 1. Hand-authored SQL migrations (`db/migrations/`)
+
+For the full production schema. Applied manually or via a deploy script.
+
+```
+db/migrations/
+├── 0001_core.sql           # 14 tables, PostGIS, 69 indexes, triggers
+├── 0002_evidence_refs.sql  # Evidence references
+└── 0003_audit_log.sql      # Immutable audit log
+```
+
+Apply with `psql` or any SQL runner:
+
+```bash
+psql $DATABASE_URL -f db/migrations/0001_core.sql
+psql $DATABASE_URL -f db/migrations/0002_evidence_refs.sql
+psql $DATABASE_URL -f db/migrations/0003_audit_log.sql
+```
+
+### 2. Drizzle Kit (`drizzle/`)
+
+For iterating on `lib/db/schema.ts` during development. Drizzle Kit diffs
+the schema file against a snapshot and generates incremental SQL.
+
+```bash
+pnpm db:generate   # Diff schema.ts → write SQL migration
+pnpm db:migrate    # Apply pending Drizzle migrations
+pnpm db:push       # Push schema directly (no migration files)
+pnpm db:studio     # Open Drizzle Studio UI
+```
+
+### Which to use
+
+- **New tables / complex DDL** → write in `db/migrations/` (hand-authored)
+- **Column tweaks during dev** → edit `schema.ts` + `pnpm db:push`
+- **Production deploys** → apply `db/migrations/` files in order
 
 ## File Layout
 
 ```
 lib/db/
-├── client.ts    # Neon HTTP + Drizzle singleton (default)
-├── tx.ts        # WebSocket Pool + interactive transaction helper
-├── schema.ts    # Drizzle table definitions (source of truth)
+├── client.ts    # Neon HTTP + Drizzle singleton
+├── query.ts     # Raw SQL tagged template helper
+├── tx.ts        # WebSocket Pool + interactive transactions
+├── audit.ts     # Audit log writer (fire-and-forget)
+├── schema.ts    # Drizzle table definitions (users, roles, consents, audit_log)
 ├── index.ts     # Barrel export
 └── README.md    # This file
 
-drizzle/         # Generated migration files (committed to git)
-drizzle.config.ts  # Drizzle Kit configuration (project root)
+db/migrations/   # Hand-authored SQL migrations (production schema)
+drizzle/         # Drizzle Kit generated migrations (dev workflow)
+drizzle.config.ts  # Drizzle Kit configuration
 ```
 
 ## Environment
 
 | Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | Yes | Neon pooled connection string (`postgresql://...?sslmode=require`) |
+| `DATABASE_URL` | Yes | Neon pooled connection string |
 
-Set in `.env.local` for development. Validated at import time by `lib/env.ts`.
-
-## PostGIS & pgvector
-
-Both extensions must be enabled on the Neon database:
-
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-Custom Drizzle column types for `geometry` and `vector` will be added to a
-`lib/db/columns.ts` file when spatial and embedding queries are implemented.
+Validated at import time by `lib/env.ts`.
