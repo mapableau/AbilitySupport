@@ -1,40 +1,54 @@
 /**
- * lib/recommendations/score.ts — Scoring, confidence, and ranking.
+ * lib/recommendations/score.ts — Weighted scoring with dynamic context.
  *
- * Takes verified candidates and produces scored recommendations with
- * confidence labels and human-readable reasoning.
+ * Scoring formula:
+ *   score = base_match
+ *         + preference_alignment * 0.4
+ *         + reliability * 0.3
+ *         + urgency_bonus * 0.2
+ *         + emotional_comfort_bonus * 0.1
+ *
+ * Each component produces a 0–1 normalised sub-score. The final score
+ * is 0–100 and the breakdown is returned for transparency.
  */
 
 import type { MatchSpec } from "../schemas/match-spec.js";
 import type { ConfidenceLevel } from "../schemas/enums.js";
 import type { MatchFactor } from "../schemas/recommendation.js";
-import type { VerifiedOrgCandidate, ScoredRecommendation } from "./types.js";
+import type { VerifiedOrgCandidate, ScoredRecommendation, DynamicRiskContext } from "./types.js";
 
-// ── Scoring weights ────────────────────────────────────────────────────────
+// ── Formula weights ────────────────────────────────────────────────────────
 
-const WEIGHTS = {
-  proximity: 25,
-  capabilityMatch: 25,
-  availability: 20,
-  verification: 15,
-  reliability: 15,
+export const SCORE_WEIGHTS = {
+  baseMatch: 1.0,
+  preferenceAlignment: 0.4,
+  reliability: 0.3,
+  urgencyBonus: 0.2,
+  emotionalComfortBonus: 0.1,
 } as const;
+
+const TOTAL_WEIGHT =
+  SCORE_WEIGHTS.baseMatch +
+  SCORE_WEIGHTS.preferenceAlignment +
+  SCORE_WEIGHTS.reliability +
+  SCORE_WEIGHTS.urgencyBonus +
+  SCORE_WEIGHTS.emotionalComfortBonus;
 
 // ── Factor calculators ─────────────────────────────────────────────────────
 
-function proximityFactor(distanceKm: number | null, maxKm: number): MatchFactor {
+export function proximityFactor(distanceKm: number | null, maxKm: number): MatchFactor {
   if (distanceKm === null) {
     return { factor: "proximity", score: 0.5, detail: "Location not available" };
   }
   const normalized = Math.max(0, 1 - distanceKm / maxKm);
   return {
     factor: "proximity",
-    score: Math.round(normalized * 100) / 100,
+    score: round(normalized),
     detail: `${distanceKm.toFixed(1)} km away`,
   };
 }
 
-function capabilityFactor(
+export function capabilityFactor(
   candidateCaps: string[],
   requiredCaps: string[],
   candidateServiceTypes: string[],
@@ -53,12 +67,12 @@ function capabilityFactor(
   ];
   return {
     factor: "capability_match",
-    score: Math.round(score * 100) / 100,
+    score: round(score),
     detail: missing.length > 0 ? `Missing: ${missing.join(", ")}` : "All capabilities matched",
   };
 }
 
-function availabilityFactor(confirmed: boolean): MatchFactor {
+export function availabilityFactor(confirmed: boolean): MatchFactor {
   return {
     factor: "availability",
     score: confirmed ? 1 : 0.3,
@@ -66,21 +80,105 @@ function availabilityFactor(confirmed: boolean): MatchFactor {
   };
 }
 
-function verificationFactor(verified: boolean, orgPoolAllowed: boolean): MatchFactor {
+export function verificationFactor(verified: boolean, orgPoolAllowed: boolean): MatchFactor {
   const score = verified && orgPoolAllowed ? 1 : verified ? 0.7 : 0.4;
   const detail = !orgPoolAllowed
     ? "Not in participant's provider pool"
-    : verified
-      ? "Organisation verified"
-      : "Organisation not yet verified";
+    : verified ? "Organisation verified" : "Organisation not yet verified";
   return { factor: "verification_status", score, detail };
 }
 
-function reliabilityFactor(reliabilityScore: number): MatchFactor {
+export function reliabilityFactor(reliabilityScore: number, outcomeHistory?: { completedBookings: number; positiveRate: number }): MatchFactor {
+  let score = Math.min(1, reliabilityScore / 100);
+  let detail = `Base reliability: ${reliabilityScore}/100`;
+  if (outcomeHistory && outcomeHistory.completedBookings > 0) {
+    const historyBoost = outcomeHistory.positiveRate * 0.3;
+    score = Math.min(1, score * 0.7 + historyBoost + 0.15);
+    detail += ` · ${outcomeHistory.completedBookings} bookings (${Math.round(outcomeHistory.positiveRate * 100)}% positive)`;
+  }
+  return { factor: "reliability", score: round(score), detail };
+}
+
+export function preferenceAlignmentFactor(
+  candidateCaps: string[],
+  functionalNeeds: string[],
+  sensorySupport: boolean,
+  continuityWorker: boolean,
+): MatchFactor {
+  if (functionalNeeds.length === 0 && !sensorySupport && !continuityWorker) {
+    return { factor: "preference_alignment", score: 0.7, detail: "No specific preferences expressed" };
+  }
+  let hits = 0;
+  let total = 0;
+  if (functionalNeeds.length > 0) {
+    const needsAsCaps = functionalNeeds.filter((n) => candidateCaps.includes(n));
+    hits += needsAsCaps.length;
+    total += functionalNeeds.length;
+  }
+  if (sensorySupport) {
+    total++;
+    if (candidateCaps.includes("sensory_support") || candidateCaps.includes("aac")) hits++;
+  }
+  if (continuityWorker) {
+    total++;
+    hits++;
+  }
+  const score = total > 0 ? hits / total : 0.7;
+  const pct = Math.round(score * 100);
   return {
-    factor: "reliability",
-    score: Math.min(1, reliabilityScore / 100),
-    detail: `Reliability score: ${reliabilityScore}/100`,
+    factor: "preference_alignment",
+    score: round(score),
+    detail: `${pct}% of preferences matched${continuityWorker ? " (continuity worker)" : ""}`,
+  };
+}
+
+export function urgencyBonusFactor(
+  matchUrgency: string,
+  needsUrgency: string,
+  availabilityConfirmed: boolean,
+): MatchFactor {
+  let score = 0.5;
+  const parts: string[] = [];
+  if (matchUrgency === "urgent" || matchUrgency === "emergency" || needsUrgency === "urgent" || needsUrgency === "soon") {
+    score = availabilityConfirmed ? 1.0 : 0.3;
+    parts.push(availabilityConfirmed ? "Urgent + available" : "Urgent but availability unconfirmed");
+  } else if (matchUrgency === "standard" || needsUrgency === "soon") {
+    score = availabilityConfirmed ? 0.8 : 0.5;
+    parts.push("Standard urgency");
+  } else {
+    score = 0.6;
+    parts.push("Flexible timing");
+  }
+  return {
+    factor: "urgency_bonus",
+    score: round(score),
+    detail: parts.join("; ") || "Default urgency",
+  };
+}
+
+export function emotionalComfortFactor(
+  emotionalState: string,
+  workerCanDrive: boolean,
+  hasPositiveBehaviourSupport: boolean,
+  previousPositiveExperience: boolean,
+): MatchFactor {
+  let score = 0.5;
+  const parts: string[] = [];
+  const stressed = ["anxious", "distressed", "stressed", "overwhelmed", "agitated"].includes(emotionalState);
+
+  if (stressed) {
+    if (previousPositiveExperience) { score += 0.3; parts.push("Previous positive experience"); }
+    if (hasPositiveBehaviourSupport) { score += 0.15; parts.push("PBS capability"); }
+    if (workerCanDrive) { score += 0.05; parts.push("Can drive (fewer transitions)"); }
+  } else {
+    score = 0.7;
+    parts.push("Participant calm");
+    if (previousPositiveExperience) { score += 0.2; parts.push("Familiar provider"); }
+  }
+  return {
+    factor: "emotional_comfort",
+    score: round(Math.min(1, score)),
+    detail: parts.join("; ") || "Default comfort",
   };
 }
 
@@ -102,22 +200,29 @@ function assignConfidence(
 
 function buildReasoning(factors: MatchFactor[], confidence: ConfidenceLevel): string {
   const topFactors = factors
-    .filter((f) => f.detail)
+    .filter((f) => f.score >= 0.7 && f.detail)
     .map((f) => f.detail)
+    .slice(0, 4)
+    .join(". ");
+  const weakFactors = factors
+    .filter((f) => f.score < 0.5 && f.detail)
+    .map((f) => `⚠ ${f.factor}: ${f.detail}`)
     .join(". ");
   const confidenceNote = confidence === "verified"
     ? "All key constraints verified."
     : confidence === "likely"
       ? "Most constraints verified; organisation awaiting full verification."
       : "Some constraints could not be verified — coordinator should confirm.";
-  return `${topFactors}. ${confidenceNote}`;
+  const parts = [topFactors, weakFactors, confidenceNote].filter(Boolean);
+  return parts.join(". ");
 }
 
-// ── Score a single org candidate ───────────────────────────────────────────
+// ── Score a single candidate ───────────────────────────────────────────────
 
 export function scoreOrgCandidate(
   candidate: VerifiedOrgCandidate,
   spec: MatchSpec,
+  dynamicCtx?: DynamicRiskContext,
 ): ScoredRecommendation {
   const maxKm = spec.maxDistanceKm ?? 25;
   const requiredCaps = spec.requirements?.requiredCapabilities ?? [];
@@ -130,29 +235,51 @@ export function scoreOrgCandidate(
       )
     : null;
 
-  const workerCaps = bestWorker?.doc.capabilities ?? [];
   const allOrgCaps = [...new Set(candidate.workers.flatMap((w) => w.doc.capabilities))];
 
-  const factors: MatchFactor[] = [
+  const baseFactors: MatchFactor[] = [
     proximityFactor(candidate.geoDistanceKm, maxKm),
-    capabilityFactor(
-      allOrgCaps,
-      requiredCaps as string[],
-      candidate.doc.service_types,
-      requiredSvcs as string[],
-    ),
+    capabilityFactor(allOrgCaps, requiredCaps as string[], candidate.doc.service_types, requiredSvcs as string[]),
     availabilityFactor(candidate.verification.availabilityConfirmed),
     verificationFactor(candidate.doc.verified, candidate.verification.orgPoolAllowed),
-    reliabilityFactor(candidate.doc.reliability_score),
   ];
 
-  const weightedScore =
-    factors[0].score * WEIGHTS.proximity +
-    factors[1].score * WEIGHTS.capabilityMatch +
-    factors[2].score * WEIGHTS.availability +
-    factors[3].score * WEIGHTS.verification +
-    factors[4].score * WEIGHTS.reliability;
+  const baseMatch = baseFactors.reduce((sum, f) => sum + f.score, 0) / baseFactors.length;
 
+  const prefFactor = preferenceAlignmentFactor(
+    allOrgCaps,
+    dynamicCtx?.functionalNeeds ?? [],
+    (dynamicCtx?.functionalNeeds ?? []).includes("sensory_support"),
+    dynamicCtx?.continuityWorker ?? false,
+  );
+
+  const relFactor = reliabilityFactor(
+    candidate.doc.reliability_score,
+    dynamicCtx?.outcomeHistory,
+  );
+
+  const urgFactor = urgencyBonusFactor(
+    spec.urgency ?? "standard",
+    dynamicCtx?.needsUrgency ?? "routine",
+    candidate.verification.availabilityConfirmed,
+  );
+
+  const emoFactor = emotionalComfortFactor(
+    dynamicCtx?.emotionalState ?? "calm",
+    bestWorker?.doc.can_drive ?? false,
+    allOrgCaps.includes("positive_behaviour_support"),
+    dynamicCtx?.previousPositiveExperience ?? false,
+  );
+
+  const weightedScore = (
+    baseMatch * SCORE_WEIGHTS.baseMatch +
+    prefFactor.score * SCORE_WEIGHTS.preferenceAlignment +
+    relFactor.score * SCORE_WEIGHTS.reliability +
+    urgFactor.score * SCORE_WEIGHTS.urgencyBonus +
+    emoFactor.score * SCORE_WEIGHTS.emotionalComfortBonus
+  ) / TOTAL_WEIGHT * 100;
+
+  const allFactors = [...baseFactors, prefFactor, relFactor, urgFactor, emoFactor];
   const confidence = assignConfidence(candidate.verification, candidate.doc.verified);
 
   return {
@@ -162,23 +289,27 @@ export function scoreOrgCandidate(
     workerName: bestWorker?.doc.name ?? null,
     vehicleId: null,
     rank: 0,
-    score: Math.round(weightedScore * 10) / 10,
+    score: round(weightedScore),
     confidence,
-    matchFactors: factors,
-    matchedServiceTypes: requiredSvcs.filter((s) =>
-      candidate.doc.service_types.includes(s),
-    ),
-    matchedCapabilities: requiredCaps.filter((c) =>
-      allOrgCaps.includes(c),
-    ),
+    matchFactors: allFactors,
+    scoreBreakdown: {
+      baseMatch: round(baseMatch * 100),
+      preferenceAlignment: round(prefFactor.score * 100),
+      reliability: round(relFactor.score * 100),
+      urgencyBonus: round(urgFactor.score * 100),
+      emotionalComfortBonus: round(emoFactor.score * 100),
+      weights: { ...SCORE_WEIGHTS },
+    },
+    matchedServiceTypes: requiredSvcs.filter((s) => candidate.doc.service_types.includes(s)),
+    matchedCapabilities: requiredCaps.filter((c) => allOrgCaps.includes(c)),
     distanceKm: candidate.geoDistanceKm,
-    reasoning: buildReasoning(factors, confidence),
+    reasoning: buildReasoning(allFactors, confidence),
     unknowns: candidate.verification.unknowns,
     evidenceRefs: [],
   };
 }
 
-// ── Rank an array of scored recommendations ────────────────────────────────
+// ── Rank ────────────────────────────────────────────────────────────────────
 
 export function rankRecommendations(
   recs: ScoredRecommendation[],
@@ -186,4 +317,8 @@ export function rankRecommendations(
   return recs
     .sort((a, b) => b.score - a.score)
     .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+function round(n: number): number {
+  return Math.round(n * 10) / 10;
 }

@@ -11,6 +11,7 @@
 
 import type { ConfidenceLevel } from "../schemas/enums.js";
 import type { MatchFactor } from "../schemas/recommendation.js";
+import type { ScoreBreakdown } from "./types.js";
 
 // ── Organisation summary (from Typesense org doc) ──────────────────────────
 
@@ -66,6 +67,7 @@ export interface RecommendationCard {
   score: number;
   confidence: ConfidenceLevel;
   matchFactors: MatchFactor[];
+  scoreBreakdown?: ScoreBreakdown;
   matchedServiceTypes: string[];
   matchedCapabilities: string[];
   distanceKm: number | null;

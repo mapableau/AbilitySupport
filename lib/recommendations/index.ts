@@ -10,9 +10,12 @@
 
 export { runRecommendationPipeline, PipelineError } from "./pipeline.js";
 export { hydrateCard, hydrateCards } from "./hydrate.js";
+export { SCORE_WEIGHTS } from "./score.js";
 export type {
   GroupedRecommendations,
   ScoredRecommendation,
+  DynamicRiskContext,
+  ScoreBreakdown,
   CoordinationRequestRow,
   LoadedRequest,
 } from "./types.js";

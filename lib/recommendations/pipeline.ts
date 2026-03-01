@@ -20,6 +20,7 @@ import type {
   LoadedRequest,
   ScoredRecommendation,
   VerifiedOrgCandidate,
+  DynamicRiskContext,
   GroupedRecommendations,
 } from "./types.js";
 import type { RecommendationCard } from "./card.js";
@@ -50,6 +51,21 @@ async function fetchEvidenceCounts(
   //   GROUP BY entity_type, entity_id
   console.log(`[pipeline] fetchEvidenceCounts(${entityKeys.length} keys) — stub`);
   return new Map();
+}
+
+async function fetchDynamicRiskContext(
+  _participantProfileId: string,
+): Promise<DynamicRiskContext> {
+  // TODO: fetch the latest needs_profiles row for this participant
+  // + outcome history from bookings/followups
+  console.log(`[pipeline] fetchDynamicRiskContext(${_participantProfileId}) — stub`);
+  return {
+    emotionalState: "calm",
+    needsUrgency: "routine",
+    functionalNeeds: [],
+    continuityWorker: false,
+    previousPositiveExperience: false,
+  };
 }
 
 async function persistRecommendations(
@@ -173,8 +189,11 @@ export async function runRecommendationPipeline(
   // Filter out orgs that fail pool constraints
   const eligible = verified.filter((v) => v.verification.orgPoolAllowed);
 
-  // 4. Score and rank
-  const scored = eligible.map((v) => scoreOrgCandidate(v, matchSpec));
+  // 4. Fetch dynamic risk context for weighted scoring
+  const dynamicCtx = await fetchDynamicRiskContext(matchSpec.participantProfileId);
+
+  // 5. Score with weighted formula and rank
+  const scored = eligible.map((v) => scoreOrgCandidate(v, matchSpec, dynamicCtx));
   const ranked = rankRecommendations(scored);
 
   // 5. Build org metadata for grouping

@@ -107,6 +107,7 @@ export function hydrateCard(
     score: rec.score,
     confidence: rec.confidence,
     matchFactors: rec.matchFactors,
+    scoreBreakdown: rec.scoreBreakdown,
     matchedServiceTypes: rec.matchedServiceTypes,
     matchedCapabilities: rec.matchedCapabilities,
     distanceKm: rec.distanceKm,

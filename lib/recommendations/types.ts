@@ -71,6 +71,34 @@ export interface VerifiedWorkerCandidate extends WorkerCandidate {
   verification: VerificationResult;
 }
 
+// ── Dynamic risk context (from chat + needs profile) ───────────────────────
+
+export interface DynamicRiskContext {
+  emotionalState: string;
+  needsUrgency: string;
+  functionalNeeds: string[];
+  continuityWorker: boolean;
+  previousPositiveExperience: boolean;
+  outcomeHistory?: { completedBookings: number; positiveRate: number };
+}
+
+// ── Score breakdown ────────────────────────────────────────────────────────
+
+export interface ScoreBreakdown {
+  baseMatch: number;
+  preferenceAlignment: number;
+  reliability: number;
+  urgencyBonus: number;
+  emotionalComfortBonus: number;
+  weights: {
+    baseMatch: number;
+    preferenceAlignment: number;
+    reliability: number;
+    urgencyBonus: number;
+    emotionalComfortBonus: number;
+  };
+}
+
 // ── Scored & ranked ────────────────────────────────────────────────────────
 
 export interface ScoredRecommendation {
@@ -83,6 +111,7 @@ export interface ScoredRecommendation {
   score: number;
   confidence: ConfidenceLevel;
   matchFactors: MatchFactor[];
+  scoreBreakdown?: ScoreBreakdown;
   matchedServiceTypes: string[];
   matchedCapabilities: string[];
   distanceKm: number | null;
