@@ -1,0 +1,44 @@
+{
+  "$schema": "https://mapable.au/schemas/federation-saml-v1.json",
+  "_comment": "Configuration for AccessiBooks SAML 2.0 federation via Clerk Enterprise SSO.",
+
+  "provider": {
+    "name": "AccessiBooks",
+    "protocol": "saml",
+    "entity_id": "https://sso.accessibooks.com.au",
+    "sso_url": "https://sso.accessibooks.com.au/saml/sso",
+    "slo_url": "https://sso.accessibooks.com.au/saml/slo",
+    "certificate_url": "https://sso.accessibooks.com.au/saml/certificate"
+  },
+
+  "service_provider": {
+    "entity_id": "https://mapable.au",
+    "acs_url": "https://clerk.mapable.au/v1/saml/acs/REPLACE_CONNECTION_ID",
+    "name_id_format": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+  },
+
+  "attribute_mapping": {
+    "NameID": "emailAddresses[0].emailAddress",
+    "org_id": "publicMetadata.accessibooksOrgId",
+    "role": "publicMetadata.accessibooksRole",
+    "display_name": "firstName+lastName",
+    "employee_id": "publicMetadata.accessibooksEmployeeId"
+  },
+
+  "provisioning": {
+    "jit_enabled": true,
+    "auto_link_organisation": true,
+    "role_mapping": {
+      "coordinator": "coordinator",
+      "plan_manager": "coordinator",
+      "auditor": "auditor",
+      "_default": "provider_admin"
+    }
+  },
+
+  "session": {
+    "clerk_session_lifetime_seconds": 60,
+    "require_signed_assertions": true,
+    "require_encrypted_assertions": false
+  }
+}

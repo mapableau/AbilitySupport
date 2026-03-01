@@ -84,6 +84,32 @@ export const consents = pgTable("consents", {
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
+// sso_links — federated identity links (Disapedia, AccessiBooks, etc.)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const ssoLinks = pgTable("sso_links", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  provider: text("provider").notNull(),
+  externalId: text("external_id").notNull(),
+  email: text("email"),
+  displayName: text("display_name"),
+  organisationId: uuid("organisation_id"),
+  providerRole: text("provider_role"),
+  metadata: jsonb("metadata").default({}),
+  linkedAt: timestamp("linked_at", { withTimezone: true }).defaultNow().notNull(),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  active: boolean("active").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("sso_links_provider_external_unique").on(t.provider, t.externalId),
+  index("idx_sso_links_user_id").on(t.userId),
+  index("idx_sso_links_provider").on(t.provider),
+  index("idx_sso_links_organisation").on(t.organisationId),
+]);
+
+// ═══════════════════════════════════════════════════════════════════════════
 // audit_log — immutable append-only log of data access and mutations
 // ═══════════════════════════════════════════════════════════════════════════
 

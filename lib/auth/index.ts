@@ -45,7 +45,17 @@ export {
 export {
   detectFederationSource,
   roleFromGroups,
+  roleFromAccessiBooks,
   extractFederatedIdentity,
   type FederatedIdentity,
   type GroupRoleMapping,
 } from "./federation.js";
+export {
+  findSsoLink,
+  findSsoLinksForUser,
+  createSsoLink,
+  touchSsoLink,
+  deactivateSsoLink,
+  type SsoLinkRecord,
+  type CreateSsoLinkInput,
+} from "./sso-link.js";

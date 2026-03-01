@@ -1,0 +1,49 @@
+{
+  "$schema": "https://mapable.au/schemas/federation-saml-v1.json",
+  "_comment": "Test configuration for AccessiBooks SAML federation.",
+
+  "provider": {
+    "name": "AccessiBooks (Test)",
+    "protocol": "saml",
+    "entity_id": "http://localhost:4181",
+    "sso_url": "http://localhost:4181/saml/sso",
+    "slo_url": "http://localhost:4181/saml/slo",
+    "certificate_url": "http://localhost:4181/saml/certificate"
+  },
+
+  "service_provider": {
+    "entity_id": "http://localhost:3000",
+    "acs_url": "http://localhost:3000/api/auth/callback/accessibooks",
+    "name_id_format": "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress"
+  },
+
+  "test_users": [
+    {
+      "_comment": "Coordinator from Acme Coordination Agency",
+      "name_id": "sarah.coord@acme-coordination.com.au",
+      "org_id": "org-acme-001",
+      "role": "coordinator",
+      "display_name": "Sarah Coordinator",
+      "expected_mapable_role": "coordinator",
+      "expected_org_link": true
+    },
+    {
+      "_comment": "Plan manager from Better Plans",
+      "name_id": "mike.plans@betterplans.com.au",
+      "org_id": "org-bp-002",
+      "role": "plan_manager",
+      "display_name": "Mike Plans",
+      "expected_mapable_role": "coordinator",
+      "expected_org_link": true
+    },
+    {
+      "_comment": "Provider admin with no explicit role",
+      "name_id": "jane.admin@careco.com.au",
+      "org_id": "org-careco-003",
+      "role": null,
+      "display_name": "Jane Admin",
+      "expected_mapable_role": "provider_admin",
+      "expected_org_link": true
+    }
+  ]
+}

@@ -17,6 +17,8 @@ export interface FederatedIdentity {
   federationSource: "disapedia" | "accessibooks" | "direct";
   externalId: string | null;
   disapediaId: string | null;
+  accessibooksOrgId: string | null;
+  accessibooksRole: string | null;
   groups: string[];
 }
 
@@ -102,6 +104,21 @@ export function extractFederatedIdentity(
     federationSource: source,
     externalId: typeof meta.externalId === "string" ? meta.externalId : null,
     disapediaId: typeof meta.disapediaId === "string" ? meta.disapediaId : null,
+    accessibooksOrgId: typeof meta.accessibooksOrgId === "string" ? meta.accessibooksOrgId : null,
+    accessibooksRole: typeof meta.accessibooksRole === "string" ? meta.accessibooksRole : null,
     groups: Array.isArray(meta.disapediaGroups) ? meta.disapediaGroups as string[] : [],
   };
+}
+
+/**
+ * Determine the role for an AccessiBooks-sourced user based on their
+ * SAML role attribute. Coordinators and plan managers get the coordinator
+ * role; others get provider_admin.
+ */
+export function roleFromAccessiBooks(samlRole: string | null): UserRole {
+  if (!samlRole) return "provider_admin";
+  const lower = samlRole.toLowerCase();
+  if (lower === "coordinator" || lower === "plan_manager") return "coordinator";
+  if (lower === "auditor") return "auditor";
+  return "provider_admin";
 }
