@@ -74,6 +74,7 @@ export function reorderRecommendations(input: ReorderInput): ReorderResult {
       updatedContext.functionalNeeds,
       updatedContext.functionalNeeds.includes("sensory_support"),
       updatedContext.continuityWorker,
+      updatedContext.preferenceWeights,
     );
 
     const relFactor = oldFactors.get("reliability") ?? { factor: "reliability", score: 0.5 };

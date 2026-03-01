@@ -80,6 +80,16 @@ export interface DynamicRiskContext {
   continuityWorker: boolean;
   previousPositiveExperience: boolean;
   outcomeHistory?: { completedBookings: number; positiveRate: number };
+  /** Learned preference weights from service outcome history. */
+  preferenceWeights?: {
+    accessibility: number;
+    sensory_quality: number;
+    communication_support: number;
+    continuity: number;
+    emotional_comfort: number;
+    punctuality: number;
+    safety: number;
+  };
 }
 
 // ── Score breakdown ────────────────────────────────────────────────────────

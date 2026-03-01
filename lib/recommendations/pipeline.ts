@@ -58,13 +58,20 @@ async function fetchDynamicRiskContext(
 ): Promise<DynamicRiskContext> {
   // TODO: fetch the latest needs_profiles row for this participant
   // + outcome history from bookings/followups
+  // + preference weights from participant_preferences.service_preferences.weights
   console.log(`[pipeline] fetchDynamicRiskContext(${_participantProfileId}) — stub`);
+
+  // In production:
+  // const weights = await loadPreferenceWeights(_participantProfileId);
+  // const parsed = parseWeights(weights);
+
   return {
     emotionalState: "calm",
     needsUrgency: "routine",
     functionalNeeds: [],
     continuityWorker: false,
     previousPositiveExperience: false,
+    preferenceWeights: undefined,
   };
 }
 

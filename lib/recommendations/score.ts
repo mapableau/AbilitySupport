@@ -99,36 +99,100 @@ export function reliabilityFactor(reliabilityScore: number, outcomeHistory?: { c
   return { factor: "reliability", score: round(score), detail };
 }
 
+/**
+ * Preference alignment factor — uses learned weights from outcome history.
+ *
+ * Each dimension is scored (0 or 1) based on whether the candidate meets
+ * it, then multiplied by the participant's learned weight for that
+ * dimension. Higher weights mean mismatches on that dimension cost more.
+ *
+ * Dimensions checked:
+ *   accessibility — wheelchair/transfer capabilities
+ *   sensory       — sensory_support or aac capability
+ *   communication — aac or communication_support capability
+ *   continuity    — whether the continuity preference is met
+ *   safety        — verified org + cleared worker
+ */
 export function preferenceAlignmentFactor(
   candidateCaps: string[],
   functionalNeeds: string[],
   sensorySupport: boolean,
   continuityWorker: boolean,
+  preferenceWeights?: DynamicRiskContext["preferenceWeights"],
 ): MatchFactor {
-  if (functionalNeeds.length === 0 && !sensorySupport && !continuityWorker) {
+  if (functionalNeeds.length === 0 && !sensorySupport && !continuityWorker && !preferenceWeights) {
     return { factor: "preference_alignment", score: 0.7, detail: "No specific preferences expressed" };
   }
-  let hits = 0;
-  let total = 0;
+
+  const w = preferenceWeights ?? {
+    accessibility: 0.5, sensory_quality: 0.3, communication_support: 0.3,
+    continuity: 0.3, emotional_comfort: 0.3, punctuality: 0.4, safety: 0.5,
+  };
+
+  const dimensions: Array<{ name: string; met: boolean; weight: number }> = [];
+
   if (functionalNeeds.length > 0) {
-    const needsAsCaps = functionalNeeds.filter((n) => candidateCaps.includes(n));
-    hits += needsAsCaps.length;
-    total += functionalNeeds.length;
+    const accessNeeds = functionalNeeds.filter((n) =>
+      ["wheelchair", "wheelchair_transfer", "manual_handling", "mobility_assistance"].includes(n),
+    );
+    if (accessNeeds.length > 0) {
+      const met = accessNeeds.every((n) => candidateCaps.includes(n));
+      dimensions.push({ name: "accessibility", met, weight: w.accessibility });
+    }
+
+    const otherNeeds = functionalNeeds.filter((n) =>
+      !["wheelchair", "wheelchair_transfer", "manual_handling", "mobility_assistance"].includes(n),
+    );
+    for (const need of otherNeeds) {
+      dimensions.push({
+        name: need,
+        met: candidateCaps.includes(need),
+        weight: 0.5,
+      });
+    }
   }
+
   if (sensorySupport) {
-    total++;
-    if (candidateCaps.includes("sensory_support") || candidateCaps.includes("aac")) hits++;
+    const met = candidateCaps.includes("sensory_support") || candidateCaps.includes("aac");
+    dimensions.push({ name: "sensory", met, weight: w.sensory_quality });
   }
+
+  if (functionalNeeds.includes("aac") || functionalNeeds.includes("communication_support")) {
+    const met = candidateCaps.includes("aac") || candidateCaps.includes("communication_support");
+    dimensions.push({ name: "communication", met, weight: w.communication_support });
+  }
+
   if (continuityWorker) {
-    total++;
-    hits++;
+    dimensions.push({ name: "continuity", met: true, weight: w.continuity });
   }
-  const score = total > 0 ? hits / total : 0.7;
+
+  if (dimensions.length === 0) {
+    return { factor: "preference_alignment", score: 0.7, detail: "No specific preferences expressed" };
+  }
+
+  let weightedSum = 0;
+  let totalWeight = 0;
+  const unmet: string[] = [];
+
+  for (const dim of dimensions) {
+    totalWeight += dim.weight;
+    if (dim.met) {
+      weightedSum += dim.weight;
+    } else {
+      unmet.push(dim.name);
+    }
+  }
+
+  const score = totalWeight > 0 ? weightedSum / totalWeight : 0.7;
   const pct = Math.round(score * 100);
+  const detail = unmet.length > 0
+    ? `${pct}% weighted preference match (unmet: ${unmet.join(", ")})`
+    : `${pct}% weighted preference match${continuityWorker ? " (continuity)" : ""}`;
+
   return {
     factor: "preference_alignment",
     score: round(score),
-    detail: `${pct}% of preferences matched${continuityWorker ? " (continuity worker)" : ""}`,
+    detail,
   };
 }
 
@@ -251,6 +315,7 @@ export function scoreOrgCandidate(
     dynamicCtx?.functionalNeeds ?? [],
     (dynamicCtx?.functionalNeeds ?? []).includes("sensory_support"),
     dynamicCtx?.continuityWorker ?? false,
+    dynamicCtx?.preferenceWeights,
   );
 
   const relFactor = reliabilityFactor(
