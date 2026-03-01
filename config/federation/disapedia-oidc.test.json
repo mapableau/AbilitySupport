@@ -1,0 +1,64 @@
+{
+  "$schema": "https://mapable.au/schemas/federation-oidc-v1.json",
+  "_comment": "Local development / CI test config. Uses Clerk test-mode keys and a mock Disapedia issuer.",
+
+  "provider": {
+    "name": "Disapedia (Test)",
+    "protocol": "oidc",
+    "discovery_url": "http://localhost:4180/.well-known/openid-configuration",
+    "issuer": "http://localhost:4180",
+    "authorization_endpoint": "http://localhost:4180/authorize",
+    "token_endpoint": "http://localhost:4180/token",
+    "userinfo_endpoint": "http://localhost:4180/userinfo",
+    "jwks_uri": "http://localhost:4180/jwks"
+  },
+
+  "client": {
+    "client_id": "test-mapable-client",
+    "redirect_uri": "http://localhost:3000/api/auth/callback/disapedia",
+    "response_type": "code",
+    "grant_type": "authorization_code",
+    "code_challenge_method": "S256",
+    "scopes": ["openid", "profile", "email"]
+  },
+
+  "claims_mapping": {
+    "sub": "externalId",
+    "email": "emailAddresses[0].emailAddress",
+    "name": "firstName+lastName",
+    "picture": "imageUrl",
+    "disapedia_id": "publicMetadata.disapediaId",
+    "groups": "publicMetadata.disapediaGroups"
+  },
+
+  "provisioning": {
+    "jit_enabled": true,
+    "default_role": "participant",
+    "auto_roles_from_groups": {}
+  },
+
+  "test_users": [
+    {
+      "_comment": "Simulated Disapedia user for integration tests",
+      "sub": "test-disapedia-001",
+      "email": "alice.test@disapedia.org",
+      "email_verified": true,
+      "name": "Alice Test",
+      "preferred_username": "AliceTest",
+      "disapedia_id": "user:test-001",
+      "groups": ["editors"],
+      "expected_mapable_role": "participant"
+    },
+    {
+      "_comment": "Simulated Disapedia reviewer (should get auditor role if auto_roles enabled)",
+      "sub": "test-disapedia-002",
+      "email": "bob.reviewer@disapedia.org",
+      "email_verified": true,
+      "name": "Bob Reviewer",
+      "preferred_username": "BobReviewer",
+      "disapedia_id": "user:test-002",
+      "groups": ["editors", "accessibility_reviewers"],
+      "expected_mapable_role": "auditor"
+    }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://mapable.au/schemas/federation-oidc-v1.json",
+  "_comment": "Test configuration for Disapedia OIDC federation via Clerk Enterprise SSO. Replace placeholder values before use.",
+
+  "provider": {
+    "name": "Disapedia",
+    "protocol": "oidc",
+    "discovery_url": "https://disapedia.org/.well-known/openid-configuration",
+    "issuer": "https://disapedia.org",
+    "authorization_endpoint": "https://disapedia.org/wiki/Special:OAuth2/authorize",
+    "token_endpoint": "https://disapedia.org/wiki/Special:OAuth2/token",
+    "userinfo_endpoint": "https://disapedia.org/wiki/Special:OAuth2/userinfo",
+    "jwks_uri": "https://disapedia.org/wiki/Special:OAuth2/jwks"
+  },
+
+  "client": {
+    "client_id": "REPLACE_WITH_CLERK_OIDC_CLIENT_ID",
+    "redirect_uri": "https://clerk.mapable.au/v1/saml/acs/REPLACE_CONNECTION_ID",
+    "response_type": "code",
+    "grant_type": "authorization_code",
+    "code_challenge_method": "S256",
+    "scopes": ["openid", "profile", "email"]
+  },
+
+  "claims_mapping": {
+    "sub": "externalId",
+    "email": "emailAddresses[0].emailAddress",
+    "name": "firstName+lastName",
+    "picture": "imageUrl",
+    "disapedia_id": "publicMetadata.disapediaId",
+    "groups": "publicMetadata.disapediaGroups"
+  },
+
+  "provisioning": {
+    "jit_enabled": true,
+    "default_role": "participant",
+    "auto_roles_from_groups": {
+      "accessibility_reviewers": "auditor"
+    }
+  },
+
+  "session": {
+    "clerk_session_lifetime_seconds": 60,
+    "clerk_refresh_token_lifetime_days": 7,
+    "idp_token_lifetime_minutes": 10,
+    "require_email_verified": true
+  },
+
+  "security": {
+    "pkce_required": true,
+    "signature_algorithm": "RS256",
+    "require_nonce": true,
+    "allowed_clock_skew_seconds": 30
+  }
+}

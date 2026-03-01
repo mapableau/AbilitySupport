@@ -42,3 +42,10 @@ export {
   type UserRecord,
   type RoleRecord,
 } from "./sync.js";
+export {
+  detectFederationSource,
+  roleFromGroups,
+  extractFederatedIdentity,
+  type FederatedIdentity,
+  type GroupRoleMapping,
+} from "./federation.js";
